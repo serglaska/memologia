@@ -181,6 +181,10 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;');
 }
 
+export async function sendMessage(text) {
+  await bot.sendMessage(config.telegram.chatId, text);
+}
+
 export function stopBot() {
   bot.stopPolling();
 }

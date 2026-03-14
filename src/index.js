@@ -2,7 +2,7 @@ import cron from 'node-cron';
 import { config } from './config.js';
 import { fetchAllSubreddits } from './reddit.js';
 import { filterBatch } from './claude.js';
-import { sendForReview, waitForDecision, stopBot } from './telegram.js';
+import { sendForReview, waitForDecision, sendMessage, stopBot } from './telegram.js';
 import { postToLinkedIn } from './linkedin.js';
 import { getPending, countPostedToday } from './db.js';
 
@@ -27,6 +27,7 @@ async function reviewAndPost() {
   const pending = getPending();
   if (pending.length === 0) {
     console.log('[index] Немає мемів для перевірки');
+    await sendMessage('⚠️ Нових мемів не знайдено — черга порожня.');
     return;
   }
 
