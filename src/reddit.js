@@ -1,5 +1,7 @@
 import { config } from './config.js';
-import { isKnown, insertMeme } from './db.js';
+import { isKnown, insertMeme, saveAiResult } from './db.js';
+
+const SKIP_SUBREDDITS = /ukraine/i;
 
 const USER_AGENT = config.reddit.userAgent;
 
@@ -64,6 +66,12 @@ async function fetchSubreddit(subredditName) {
     };
 
     insertMeme(meme);
+
+    if (SKIP_SUBREDDITS.test(subredditName)) {
+      saveAiResult(meme.id, { approved: true, linkedinText: meme.title });
+      continue;
+    }
+
     newMemes.push(meme);
   }
 
