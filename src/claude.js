@@ -18,9 +18,10 @@ REJECT if the meme:
 - Is purely visual with nothing to caption
 
 APPROVE if the meme:
-- Is about software development, tech industry, product management, or work life
-- Has universal tech humor that non-Reddit people will get
-- Can be captioned in a way that adds professional insight
+- Has genuinely funny, witty, or clever humor — regardless of topic
+- Is about software development, tech industry, product management, work life, or current events/politics
+- Can be captioned in a way that feels insightful, relatable, or shareable
+- A non-Reddit person would find it funny or thought-provoking
 
 Respond ONLY with valid JSON. No markdown, no explanation.`;
 
