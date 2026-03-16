@@ -15,13 +15,14 @@ const awaitingEdit = new Map();
 
 // --- Надсилання мему на перевірку ---
 
-export async function sendForReview(meme, linkedinText) {
+export async function sendForReview(meme, linkedinText, pendingCount) {
   const caption = [
     `📝 <b>Текст для LinkedIn:</b>`,
     `<i>${escapeHtml(linkedinText ?? '')}</i>`,
     ``,
     `📊 Score: ${meme.score} | r/${meme.subreddit}`,
     `🔗 <a href="${meme.post_url}">Reddit</a>`,
+    `📦 В черзі: ${pendingCount ?? '?'}`,
   ].join('\n');
 
   const tgChannelRow = config.telegram.channelId

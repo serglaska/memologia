@@ -57,6 +57,12 @@ export function getByTgMessageId(tgMessageId) {
   return db.prepare('SELECT * FROM memes WHERE tg_message_id = ?').get(tgMessageId);
 }
 
+export function countPending() {
+  return db.prepare(`
+    SELECT COUNT(*) as n FROM memes WHERE status = 'pending' AND linkedin_text IS NOT NULL
+  `).get().n;
+}
+
 export function countPostedToday() {
   return db.prepare(`
     SELECT COUNT(*) as n FROM memes

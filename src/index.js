@@ -4,7 +4,7 @@ import { fetchAllSubreddits } from './reddit.js';
 import { filterBatch } from './claude.js';
 import { sendForReview, waitForDecision, sendMessage, stopBot } from './telegram.js';
 import { postToLinkedIn } from './linkedin.js';
-import { getPending, countPostedToday } from './db.js';
+import { getPending, countPending, countPostedToday } from './db.js';
 
 // --- Основний флоу ---
 
@@ -24,29 +24,40 @@ async function reviewAndPost() {
     return;
   }
 
-  const pending = getPending();
-  if (pending.length === 0) {
-    console.log('[index] Немає мемів для перевірки');
-    await sendMessage('⚠️ Нових мемів не знайдено — черга порожня.');
-    return;
-  }
-
-  // Беремо перший в черзі (найвищий score)
-  const meme = pending[0];
-  console.log(`[index] Надсилаємо на перевірку: ${meme.id} (score: ${meme.score})`);
-
-  await sendForReview(meme, meme.linkedin_text);
-  const decision = await waitForDecision(meme.id);
-
-  console.log(`[index] Рішення: ${decision.action}`);
-
-  if (decision.action === 'post') {
-    const text = decision.customText ?? meme.linkedin_text ?? '';
-    try {
-      await postToLinkedIn(meme, text);
-    } catch (err) {
-      console.error('[index] Помилка публікації в LinkedIn:', err.message);
+  while (true) {
+    const pending = getPending();
+    if (pending.length === 0) {
+      console.log('[index] Немає мемів для перевірки');
+      await sendMessage('⚠️ Нових мемів не знайдено — черга порожня.');
+      return;
     }
+
+    // Беремо перший в черзі (найвищий score)
+    const meme = pending[0];
+    console.log(`[index] Надсилаємо на перевірку: ${meme.id} (score: ${meme.score}), в черзі: ${pending.length}`);
+
+    await sendForReview(meme, meme.linkedin_text, pending.length);
+    const decision = await waitForDecision(meme.id);
+
+    console.log(`[index] Рішення: ${decision.action}`);
+
+    if (decision.action === 'post') {
+      const text = decision.customText ?? meme.linkedin_text ?? '';
+      try {
+        await postToLinkedIn(meme, text);
+      } catch (err) {
+        console.error('[index] Помилка публікації в LinkedIn:', err.message);
+      }
+      return;
+    }
+
+    if (decision.action === 'skip' || decision.action === 'block') {
+      // Показуємо наступний мем одразу
+      continue;
+    }
+
+    // tgchannel, timeout або інше — зупиняємось
+    return;
   }
 }
 
