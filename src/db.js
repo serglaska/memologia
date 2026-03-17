@@ -49,7 +49,7 @@ export function isKnown(redditId) {
 
 export function getPending() {
   return db.prepare(`
-    SELECT * FROM memes WHERE status = 'pending' AND linkedin_text IS NOT NULL ORDER BY score DESC LIMIT 10
+    SELECT * FROM memes WHERE status = 'pending' ORDER BY score DESC LIMIT 10
   `).all();
 }
 
@@ -59,7 +59,7 @@ export function getByTgMessageId(tgMessageId) {
 
 export function countPending() {
   return db.prepare(`
-    SELECT COUNT(*) as n FROM memes WHERE status = 'pending' AND linkedin_text IS NOT NULL
+    SELECT COUNT(*) as n FROM memes WHERE status = 'pending'
   `).get().n;
 }
 

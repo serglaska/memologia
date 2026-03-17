@@ -1,7 +1,6 @@
 import cron from 'node-cron';
 import { config } from './config.js';
 import { fetchAllSubreddits } from './reddit.js';
-import { filterBatch } from './claude.js';
 import { sendForReview, waitForDecision, sendMessage, stopBot } from './telegram.js';
 import { postToLinkedIn } from './linkedin.js';
 import { getPending, countPending, countPostedToday } from './db.js';
@@ -10,11 +9,8 @@ import { getPending, countPending, countPostedToday } from './db.js';
 
 async function fetchAndFilter() {
   console.log('[index] Починаємо fetch + filter...');
-  const freshMemes = await fetchAllSubreddits();
-  if (freshMemes.length > 0) {
-    await filterBatch(freshMemes);
-  }
-  console.log('[index] Fetch + filter завершено');
+  await fetchAllSubreddits();
+  console.log('[index] Fetch завершено');
 }
 
 async function reviewAndPost() {

@@ -1,8 +1,6 @@
 import { config } from './config.js';
 import { isKnown, insertMeme, saveAiResult } from './db.js';
 
-const SKIP_SUBREDDITS = /ukraine/i;
-
 const USER_AGENT = config.reddit.userAgent;
 
 // Домени які точно містять зображення
@@ -53,8 +51,7 @@ async function fetchSubreddit(subredditName) {
     // Пропускаємо не-зображення
     if (!isImagePost(post)) continue;
 
-    // Мінімальний поріг якості — не беремо сміттєві пости
-    if (post.score < 100) continue;
+    if (post.score < 50) continue;
 
     const meme = {
       id:        post.id,
@@ -66,32 +63,17 @@ async function fetchSubreddit(subredditName) {
     };
 
     insertMeme(meme);
-
-    if (SKIP_SUBREDDITS.test(subredditName)) {
-      saveAiResult(meme.id, { approved: true, linkedinText: meme.title });
-      continue;
-    }
-
-    newMemes.push(meme);
+    saveAiResult(meme.id, { approved: true, linkedinText: meme.title });
   }
-
-  return newMemes;
 }
 
 export async function fetchAllSubreddits() {
-  const results = [];
-
   for (const subreddit of config.reddit.subreddits) {
     try {
-      const memes = await fetchSubreddit(subreddit);
-      console.log(`[reddit] r/${subreddit}: ${memes.length} нових мемів`);
-      results.push(...memes);
+      await fetchSubreddit(subreddit);
+      console.log(`[reddit] r/${subreddit}: завершено`);
     } catch (err) {
-      // Не ламаємо весь цикл якщо один subreddit недоступний
       console.error(`[reddit] r/${subreddit} помилка:`, err.message);
     }
   }
-
-  console.log(`[reddit] Всього нових: ${results.length}`);
-  return results;
 }
