@@ -1,5 +1,6 @@
 import { config } from './config.js';
 import { markPosted } from './db.js';
+import { pickRandomTags } from './tags.js';
 
 const API = 'https://api.linkedin.com/v2';
 
@@ -58,12 +59,15 @@ async function uploadImage(imageUrl) {
 export async function postToLinkedIn(meme, text) {
   const asset = await uploadImage(meme.image_url);
 
+  const tags = pickRandomTags(4);
+  const textWithTags = `${text}\n\n${tags.join(' ')}`;
+
   const body = {
     author: config.linkedin.personUrn,
     lifecycleState: 'PUBLISHED',
     specificContent: {
       'com.linkedin.ugc.ShareContent': {
-        shareCommentary: { text },
+        shareCommentary: { text: textWithTags },
         shareMediaCategory: 'IMAGE',
         media: [{
           status: 'READY',
