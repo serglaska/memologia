@@ -51,7 +51,7 @@ async function fetchSubreddit(subredditName) {
     // Пропускаємо не-зображення
     if (!isImagePost(post)) continue;
 
-    if (post.score < 50) continue;
+    if (post.score < 150) continue;
 
     const meme = {
       id:        post.id,
