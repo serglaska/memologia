@@ -59,10 +59,13 @@ export async function sendForReview(meme, linkedinText, pendingCount) {
 // Для простоти: зовнішній код підписується через onDecision()
 const decisionCallbacks = new Map(); // memeId → { resolve, reject }
 
-export function waitForDecision(memeId, timeoutMs = 24 * 60 * 60 * 1000) {
+export function waitForDecision(memeId, timeoutMs = 15 * 60 * 1000) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       decisionCallbacks.delete(memeId);
+      for (const [userId, id] of awaitingEdit) {
+        if (id === memeId) awaitingEdit.delete(userId);
+      }
       resolve({ action: 'timeout' });
     }, timeoutMs);
 
