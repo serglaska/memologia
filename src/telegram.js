@@ -1,17 +1,75 @@
 import TelegramBot from 'node-telegram-bot-api';
 import { config } from './config.js';
 import {
+  getMemeById,
   getByTgMessageId,
   saveTgMessageId,
   updateStatus,
   markSkipped,
+  countPending,
+  countPostedToday,
 } from './db.js';
+import { makeNewsletterImage } from './imageProcessor.js';
 
 const bot = new TelegramBot(config.telegram.token, { polling: true });
 
-// Зберігаємо стан "очікує новий текст від тебе"
-// Map: chatId → memeId
 const awaitingEdit = new Map();
+
+// --- /go handler registration ---
+
+let goCallback = null;
+let goRunning = false;
+
+export function registerGoHandler(fn) {
+  goCallback = fn;
+}
+
+// --- Commands ---
+
+bot.onText(/^\/info/, async (msg) => {
+  if (String(msg.chat.id) !== String(config.telegram.chatId)) return;
+  await bot.sendMessage(config.telegram.chatId,
+    '<b>Команди бота:</b>\n\n' +
+    '/info — цей список\n' +
+    '/status — черга, ліміти, розклад\n' +
+    '/go — відправити наступний мем на перевірку прямо зараз',
+    { parse_mode: 'HTML' },
+  );
+});
+
+bot.onText(/^\/status/, async (msg) => {
+  if (String(msg.chat.id) !== String(config.telegram.chatId)) return;
+  const pending = countPending();
+  const today = countPostedToday();
+  const max = config.bot.maxPostsPerDay;
+  await bot.sendMessage(config.telegram.chatId,
+    '<b>Статус бота:</b>\n\n' +
+    `📦 В черзі: ${pending}\n` +
+    `📤 Опубліковано сьогодні: ${today} / ${max}\n` +
+    `⏰ Fetch: <code>${config.bot.schedules.fetch}</code>\n` +
+    `⏰ Post:  <code>${config.bot.schedules.post}</code>`,
+    { parse_mode: 'HTML' },
+  );
+});
+
+bot.onText(/^\/go/, async (msg) => {
+  if (String(msg.chat.id) !== String(config.telegram.chatId)) return;
+  if (goRunning) {
+    await bot.sendMessage(config.telegram.chatId, '⚠️ Вже запущено перевірку, зачекай.');
+    return;
+  }
+  if (!goCallback) {
+    await bot.sendMessage(config.telegram.chatId, '❌ Обробник не зареєстровано.');
+    return;
+  }
+  await bot.sendMessage(config.telegram.chatId, '▶️ Запускаю...');
+  goRunning = true;
+  goCallback()
+    .catch(async (err) => {
+      await bot.sendMessage(config.telegram.chatId, `❌ Помилка: ${escapeHtml(err.message)}`).catch(() => {});
+    })
+    .finally(() => { goRunning = false; });
+});
 
 // --- Надсилання мему на перевірку ---
 
@@ -36,6 +94,7 @@ export async function sendForReview(meme, linkedinText, pendingCount) {
         { text: '✏️ Змінити текст', callback_data: `edit:${meme.id}` },
       ],
       ...(tgChannelRow.length ? [tgChannelRow] : []),
+      [{ text: '🖼 Newsletter', callback_data: `newsletter:${meme.id}` }],
       [
         { text: '⏭ Скип', callback_data: `skip:${meme.id}` },
         { text: '🚫 Заблокувати', callback_data: `block:${meme.id}` },
@@ -43,11 +102,21 @@ export async function sendForReview(meme, linkedinText, pendingCount) {
     ],
   };
 
-  const msg = await bot.sendPhoto(config.telegram.chatId, meme.image_url, {
-    caption,
-    parse_mode: 'HTML',
-    reply_markup: keyboard,
-  });
+  let msg;
+  try {
+    msg = await bot.sendPhoto(config.telegram.chatId, meme.image_url, {
+      caption,
+      parse_mode: 'HTML',
+      reply_markup: keyboard,
+    });
+  } catch (err) {
+    await bot.sendMessage(
+      config.telegram.chatId,
+      `⚠️ Не вдалося завантажити фото для <code>${meme.id}</code>: ${escapeHtml(err.message)}\nМем заблоковано.`,
+      { parse_mode: 'HTML' },
+    );
+    return null;
+  }
 
   saveTgMessageId(meme.id, msg.message_id);
   return msg.message_id;
@@ -125,6 +194,24 @@ bot.on('callback_query', async (query) => {
       await editCaption(message, '🚫 Заблоковано — більше не з\'явиться');
       updateStatus(memeId, 'blocked');
       cb?.resolve({ action: 'block', memeId });
+      break;
+    }
+
+    case 'newsletter': {
+      const meme = getMemeById(memeId);
+      if (!meme) break;
+      await bot.answerCallbackQuery(query.id, { text: '🖼 Обробляю...' });
+      try {
+        const buffer = await makeNewsletterImage(meme.image_url);
+        await bot.sendPhoto(config.telegram.chatId, buffer, {
+          caption: `🖼 Newsletter 1280×720 | r/${meme.subreddit} | score ${meme.score}`,
+        });
+      } catch (err) {
+        await bot.sendMessage(
+          config.telegram.chatId,
+          `❌ Помилка обробки зображення: ${escapeHtml(err.message)}`,
+        );
+      }
       break;
     }
 

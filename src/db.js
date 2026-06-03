@@ -53,6 +53,10 @@ export function getPending() {
   `).all();
 }
 
+export function getMemeById(id) {
+  return db.prepare('SELECT * FROM memes WHERE id = ?').get(id);
+}
+
 export function getByTgMessageId(tgMessageId) {
   return db.prepare('SELECT * FROM memes WHERE tg_message_id = ?').get(tgMessageId);
 }

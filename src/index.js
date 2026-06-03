@@ -1,9 +1,9 @@
 import cron from 'node-cron';
 import { config } from './config.js';
 import { fetchAllSubreddits } from './reddit.js';
-import { sendForReview, waitForDecision, sendMessage, stopBot } from './telegram.js';
+import { sendForReview, waitForDecision, sendMessage, stopBot, registerGoHandler } from './telegram.js';
 import { postToLinkedIn } from './linkedin.js';
-import { getPending, countPending, countPostedToday } from './db.js';
+import { getPending, countPending, countPostedToday, updateStatus } from './db.js';
 
 // --- Основний флоу ---
 
@@ -32,7 +32,11 @@ async function reviewAndPost() {
     const meme = pending[0];
     console.log(`[index] Надсилаємо на перевірку: ${meme.id} (score: ${meme.score}), в черзі: ${pending.length}`);
 
-    await sendForReview(meme, meme.linkedin_text, pending.length);
+    const msgId = await sendForReview(meme, meme.linkedin_text, pending.length);
+    if (msgId === null) {
+      updateStatus(meme.id, 'blocked');
+      continue;
+    }
     const decision = await waitForDecision(meme.id);
 
     console.log(`[index] Рішення: ${decision.action}`);
@@ -78,6 +82,8 @@ function startScheduler() {
 // --- Ручний запуск через аргументи ---
 
 const [,, command] = process.argv;
+
+registerGoHandler(reviewAndPost);
 
 if (command === 'fetch') {
   // node src/index.js fetch — одноразово тягнемо меми
