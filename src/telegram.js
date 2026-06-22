@@ -160,8 +160,24 @@ bot.on('callback_query', async (query) => {
   }
 
   const [action, memeId] = data.split(':');
-  const cb = decisionCallbacks.get(memeId);
 
+  // Newsletter: fire-and-forget, працює в будь-який момент на будь-якому мемі
+  if (action === 'newsletter') {
+    await bot.answerCallbackQuery(query.id, { text: '🖼 Обробляю...' });
+    const meme = getMemeById(memeId);
+    if (!meme) return;
+    makeNewsletterImage(meme.image_url)
+      .then(buffer => bot.sendPhoto(config.telegram.chatId, buffer, {
+        caption: `🖼 Newsletter 1280×720 | r/${meme.subreddit} | score ${meme.score}`,
+      }))
+      .catch(err => bot.sendMessage(
+        config.telegram.chatId,
+        `❌ Помилка обробки зображення: ${escapeHtml(err.message)}`,
+      ).catch(() => {}));
+    return;
+  }
+
+  const cb = decisionCallbacks.get(memeId);
   await bot.answerCallbackQuery(query.id);
 
   switch (action) {
@@ -194,24 +210,6 @@ bot.on('callback_query', async (query) => {
       await editCaption(message, '🚫 Заблоковано — більше не з\'явиться');
       updateStatus(memeId, 'blocked');
       cb?.resolve({ action: 'block', memeId });
-      break;
-    }
-
-    case 'newsletter': {
-      const meme = getMemeById(memeId);
-      if (!meme) break;
-      await bot.answerCallbackQuery(query.id, { text: '🖼 Обробляю...' });
-      try {
-        const buffer = await makeNewsletterImage(meme.image_url);
-        await bot.sendPhoto(config.telegram.chatId, buffer, {
-          caption: `🖼 Newsletter 1280×720 | r/${meme.subreddit} | score ${meme.score}`,
-        });
-      } catch (err) {
-        await bot.sendMessage(
-          config.telegram.chatId,
-          `❌ Помилка обробки зображення: ${escapeHtml(err.message)}`,
-        );
-      }
       break;
     }
 
